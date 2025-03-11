@@ -39,58 +39,58 @@ public class CalculateSales {
 		if (!readFile(args[0], FILE_NAME_BRANCH_LST, branchNames, branchSales)) {
 			return;
 		}
-		
+
 		List<File> salesFiles = readSalesFiles(args[0]); //売上フォルダを探している
-		
+
 		for (File salesFile : salesFiles) {
             processSalesFile(salesFile, branchSales);
-            
+
         }
-		    
+
 		    if (!writeFile(args[0], FILE_NAME_BRANCH_OUT, branchNames, branchSales)) {
 	            return;
 		    }
 	}
-	
+
 	private static List<File> readSalesFiles(String path) {
 		List<File> rcdFiles = new ArrayList<>(); // 売上ファイルを格納するリスト
 		File[] files = new File(path).listFiles(); // 指定フォルダ内の全ファイル取得
-		
+
 		if (files == null) {
 			 return rcdFiles; //見つけた売上ファイルをリストに追加して返す
 		}
-		
-		for(int i = 0; i < files.length; i++) { 
+
+		for(int i = 0; i < files.length; i++) {
 		      String fileName = files[i].getName(); // **ファイル名を取得**
-		      
-				 if(fileName.matches("\\d{8}\\.rcd")) { 
-			            rcdFiles.add(files[i]); 	
+
+				 if(fileName.matches("\\d{8}\\.rcd")) {
+			            rcdFiles.add(files[i]);
 		    }
 		}
-		
+
 		return rcdFiles; // 売上ファイルのリストを返す
 	}
-	
+
 	private static void processSalesFile(File salesFile, Map<String, Long> branchSales) {
-		
+
 		BufferedReader br = null;
 		try {
 			br = new BufferedReader(new FileReader(salesFile));
-			
+
 			 String branchCode = br.readLine();  // 売上ファイルの1行目：支店コード
 			 String salesAmountStr = br.readLine();// 売上ファイルの2行目：売上金額
-			 
+
 			 if (branchCode == null || salesAmountStr == null || !branchCode.matches("\\d{3}") || !salesAmountStr.matches("\\d+")) {
 		            return;
 		        }
-			 
+
 			 long salesAmount = Long.parseLong(salesAmountStr);
-			 
+
 			 if (branchSales.containsKey(branchCode)) {
 		            branchSales.put(branchCode, branchSales.get(branchCode) + salesAmount);
 		        } else {
 		        }
-			 
+
 		 } catch (IOException e) {
 		        e.printStackTrace();
 		    } finally {
@@ -100,9 +100,9 @@ public class CalculateSales {
 		            e.printStackTrace();
 		        }
 		    }
-			 
+
 		}
-	
+
 	private static boolean readFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
 		 BufferedReader br = null;
 	        try {
@@ -140,12 +140,12 @@ public class CalculateSales {
 
 	private static boolean writeFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
 		 File file = new File(path, fileName);
-		 
+
 		 try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
 			 for (String branchCode : branchNames.keySet()) {
 		            String branchName = branchNames.get(branchCode);
 		            Long totalSales = branchSales.get(branchCode);
-		            
+
 		            bw.write(branchCode + "," + branchName + "," + totalSales);
 		            bw.newLine(); // 改行
 		 }
@@ -153,11 +153,11 @@ public class CalculateSales {
 		        e.printStackTrace();
 		        return false;
 	}
-		
+
         return true;
 	}
 }
-		// ※ここから集計処理を作成してください。(処理内容2-1、2-2)
+		// ※ここから集計処理を作成してください(処理内容2-1、2-2)
 
 	/**
 	 * 支店定義ファイル読み込み処理
@@ -168,7 +168,7 @@ public class CalculateSales {
 	 * @param 支店コードと売上金額を保持するMap
 	 * @return 読み込み可否
 	 */
-	
+
 
 	/**
 	 * 支店別集計ファイル書き込み処理
