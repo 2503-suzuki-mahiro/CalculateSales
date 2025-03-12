@@ -1,14 +1,10 @@
 package jp.alhinc.calculate_sales;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class CalculateSales {
@@ -24,82 +20,171 @@ public class CalculateSales {
 	private static final String FILE_NOT_EXIST = "支店定義ファイルが存在しません";
 	private static final String FILE_INVALID_FORMAT = "支店定義ファイルのフォーマットが不正です";
 
+	/**
+	 * メインメソッド
+	 *
+	 * @param コマンドライン引数
+	 */
 	public static void main(String[] args) {
+	    String directoryPath = args[0];
+
 		// 支店コードと支店名を保持するMap
 		Map<String, String> branchNames = new HashMap<>();
 		// 支店コードと売上金額を保持するMap
 		Map<String, Long> branchSales = new HashMap<>();
 
-		String branchFile = args[0] + "/" + FILE_NAME_BRANCH_LST;
-		try (BufferedReader br = new BufferedReader(new FileReader(branchFile))) {
-			String line;
-			while ((line = br.readLine()) != null) {
-				String[] items = line.split(",");
-				if (items.length != 2 || !items[0].matches("\\d{3}")) {
-					System.out.println(FILE_INVALID_FORMAT);
-					return;
-				}
-				branchNames.put(items[0], items[1]);
-				branchSales.put(items[0], 0L);
-			}
-		} catch (IOException e) {
-			System.out.println(UNKNOWN_ERROR);
-			e.printStackTrace();
+		 // 支店定義ファイルを開く
+		File file = new File(args[0], FILE_NAME_BRANCH_LST);
+
+		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+	        String line;
+	        while ((line = br.readLine()) != null) {
+	            // 「,」で分割して支店コードと支店名を取得
+	            String[] items = line.split(",");
+
+	            // 取得したデータを branchNames, branchSales に追加
+	            branchNames.put(items[0], items[1]);
+	            branchSales.put(items[0], 0L); // 初期値は0
+	        }
+
+		// 支店定義ファイル読み込み処理
+		if(!readFile(args[0], FILE_NAME_BRANCH_LST, branchNames, branchSales)) {
 			return;
 		}
+		// ※ここから集計処理を作成してください。(処理内容2-1、2-2)
 
-		// 売上ファイルの取得
-		File dir = new File(args[0]);
-		File[] files = dir.listFiles();
-		if (files == null) {
-			System.out.println("指定したフォルダが見つかりません");
-			return;
+		//売上ファイルの取得
+		File dir = new File(args[0]); // コマンドライン引数で指定したフォルダ
+		File[] files = dir.listFiles(); // フォルダ内の全ファイル取得
+
+		List<File> salesFiles = new ArrayList<>(); // 売上ファイルを格納するリスト
+
+		if (files != null) { // ファイルが存在する場合のみ処理
+		    for (int i = 0; i < files.length; i++) {
+		        if (files[i].getName().matches("\\d{8}\\.rcd")) { // 8桁の数字 + .rcd のファイル
+		            salesFiles.add(files[i]); // 売上ファイルリストに追加
+		        }
+		    }
 		}
 
-		List<File> salesFiles = new ArrayList<>();
-		for (File file : files) {
-			if (file.getName().matches("\\d{8}\\.rcd")) {
-				salesFiles.add(file);
-			}
-		}
-
-		// 売上ファイルの処理
 		for (File salesFile : salesFiles) {
-			try (BufferedReader br = new BufferedReader(new FileReader(salesFile))) {
-				String branchCode = br.readLine(); // 1行目: 支店コード
-				String salesAmountStr = br.readLine(); // 2行目: 売上金額
+		    try (BufferedReader br = new BufferedReader(new FileReader(salesFile))) {
+		        String branchCode = br.readLine();  // 1行目: 支店コード
+		        String salesAmountStr = br.readLine(); // 2行目: 売上金額
 
-				if (branchCode == null || salesAmountStr == null || !branchCode.matches("\\d{3}")
-						|| !salesAmountStr.matches("\\d+")) {
-					System.out.println("売上ファイルのフォーマットが不正です: " + salesFile.getName());
-					return;
+		        long salesAmount = Long.parseLong(salesAmountStr); // 文字列を数値に変換
+
+		        if (branchSales.containsKey(branchCode)) {
+		        	// 既存の売上金額を取得し、新しい売上金額を加算
+		            Long currentSales = branchSales.get(branchCode);
+		            Long updatedSales = currentSales + salesAmount;
+		            branchSales.put(branchCode, updatedSales); // 更新
+		        }
+		    } finally {
+		    	  if (br != null) {
+		              try {
+		                  br.close();
+		              } catch (IOException e) {
+
+		// 支店別集計ファイル書き込み処理
+		if(!writeFile(args[0], FILE_NAME_BRANCH_OUT, branchNames, branchSales)) {
+			return;
+		}
+      }
+    }
+
+	/**
+	 * 支店定義ファイル読み込み処理
+	 *
+	 * @param フォルダパス
+	 * @param ファイル名
+	 * @param 支店コードと支店名を保持するMap
+	 * @param 支店コードと売上金額を保持するMap
+	 * @return 読み込み可否
+	 */
+	private static boolean readFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
+		BufferedReader br = null;
+
+		try {
+			File file = new File(path, fileName);
+			FileReader fr = new FileReader(file);
+			br = new BufferedReader(fr);
+
+			String line;
+			// 一行ずつ読み込む
+			while((line = br.readLine()) != null) {
+				// ※ここの読み込み処理を変更してください。(処理内容1-2)
+				 String[] items = line.split(",");
+
+				 String branchCode = items[0];
+				 String branchName = items[1];
+
+				System.out.println(line);
+			}
+
+		} catch(IOException e) {
+			System.out.println(UNKNOWN_ERROR);
+			return false;
+
+		} finally {
+			// ファイルを開いている場合
+			if(br != null) {
+				try {
+					// ファイルを閉じる
+					br.close();
+				} catch(IOException e) {
+					System.out.println(UNKNOWN_ERROR);
+					return false;
 				}
-
-				long salesAmount = Long.parseLong(salesAmountStr);
-
-				if (branchSales.containsKey(branchCode)) {
-					branchSales.put(branchCode, branchSales.get(branchCode) + salesAmount);
-				} else {
-					System.out.println("エラー: 売上ファイルの支店コードが支店定義に存在しません: " + branchCode);
-				}
-			} catch (IOException e) {
-				System.out.println("売上ファイルの読み込み中にエラーが発生しました: " + salesFile.getName());
-				e.printStackTrace();
-				return;
 			}
 		}
-		// writeFile を呼び出して集計結果を書き込む**
-		String outputFile = args[0] + "/" + FILE_NAME_BRANCH_OUT;
-		try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile))) {
-			for (String branchCode : branchNames.keySet()) {
-				String branchName = branchNames.get(branchCode);
-				Long totalSales = branchSales.get(branchCode);
-				bw.write(branchCode + "," + branchName + "," + totalSales);
-				bw.newLine();
-			}
-		} catch (IOException e) {
-			System.out.println("支店別集計ファイルの書き込み中にエラーが発生しました");
-			e.printStackTrace();
-		}
+		return true;
 	}
-}
+
+	/**
+	 * 支店別集計ファイル書き込み処理
+	 *
+	 * @param フォルダパス
+	 * @param ファイル名
+	 * @param 支店コードと支店名を保持するMap
+	 * @param 支店コードと売上金額を保持するMap
+	 * @return 書き込み可否
+	 */
+	private static boolean writeFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
+		// ※ここに書き込み処理を作成してください。(処理内容3-1)
+
+		BufferedWriter bw = null;
+
+		try {
+			  File file = new File(path, fileName);
+			  FileWriter fw = new FileWriter(file);
+		      bw = new BufferedWriter(fw);
+
+		      for (String key : branchNames.keySet()) {
+		    	  bw.write(key + "," + branchNames.get(key) + "," + branchSales.get(key));
+		    	  bw.newLine();
+		      }
+		} catch(IOException e) {
+			     System.out.println(UNKNOWN_ERROR);
+			     return false;
+        } finally {
+			// ファイルを開いている場合
+			if(bw != null) {
+				try {
+					// ファイルを閉じる
+					bw.close();
+				} catch(IOException e) {
+					System.out.println(UNKNOWN_ERROR);
+					return false;
+				}
+			}
+		}
+		return true;
+	  }
+	}
+
+
+
+
+
+
