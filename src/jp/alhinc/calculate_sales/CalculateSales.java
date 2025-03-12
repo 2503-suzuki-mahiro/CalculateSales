@@ -30,126 +30,75 @@ public class CalculateSales {
 		// 支店コードと売上金額を保持するMap
 		Map<String, Long> branchSales = new HashMap<>();
 
-		// 支店定義ファイル読み込み処理
-		if (!readFile(args[0], FILE_NAME_BRANCH_LST, branchNames, branchSales)) {
+		String branchFile = args[0] + "/" + FILE_NAME_BRANCH_LST;
+		try (BufferedReader br = new BufferedReader(new FileReader(branchFile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] items = line.split(",");
+                if (items.length != 2 || !items[0].matches("\\d{3}")) {
+                    System.out.println(FILE_INVALID_FORMAT);
+                    return;
+                }
+                branchNames.put(items[0], items[1]);
+                branchSales.put(items[0], 0L);
+            }
+        } catch (IOException e) {
+            System.out.println(FILE_NOT_EXIST);
+            e.printStackTrace();
+            return;
+        }
+
+		// 売上ファイルの取得
+		File dir = new File(args[0]);
+		File[] files = dir.listFiles();
+		if (files == null) {
+			System.out.println("指定したフォルダが見つかりません");
 			return;
 		}
 
-		List<File> salesFiles = readSalesFiles(args[0]); //売上フォルダを探している
+		List<File> salesFiles = new ArrayList<>();
+		for (File file : files) {
+			if (file.getName().matches("\\d{8}\\.rcd")) {
+				salesFiles.add(file);
+			}
+		}
 
+		// 売上ファイルの処理
 		for (File salesFile : salesFiles) {
-            processSalesFile(salesFile, branchSales);
+			 try (BufferedReader br = new BufferedReader(new FileReader(salesFile))) {
+	                String branchCode = br.readLine();  // 1行目: 支店コード
+	                String salesAmountStr = br.readLine(); // 2行目: 売上金額
 
-        }
-
-		    if (!writeFile(args[0], FILE_NAME_BRANCH_OUT, branchNames, branchSales)) {
-	            return;
-		    }
-	}
-
-	private static List<File> readSalesFiles(String path) {
-		List<File> rcdFiles = new ArrayList<>(); // 売上ファイルを格納するリスト
-		File[] files = new File(path).listFiles(); // 指定フォルダ内の全ファイル取得
-
-		if (files == null) {
-			 return rcdFiles; //見つけた売上ファイルをリストに追加して返す
-		}
-
-		for(int i = 0; i < files.length; i++) {
-		      String fileName = files[i].getName(); // **ファイル名を取得**
-
-				 if(fileName.matches("\\d{8}\\.rcd")) {
-			            rcdFiles.add(files[i]);
-		    }
-		}
-
-		return rcdFiles; // 売上ファイルのリストを返す
-	}
-
-	private static void processSalesFile(File salesFile, Map<String, Long> branchSales) {
-
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(salesFile));
-
-			 String branchCode = br.readLine();  // 売上ファイルの1行目：支店コード
-			 String salesAmountStr = br.readLine();// 売上ファイルの2行目：売上金額
-
-			 if (branchCode == null || salesAmountStr == null || !branchCode.matches("\\d{3}") || !salesAmountStr.matches("\\d+")) {
-		            return;
-		        }
-
-			 long salesAmount = Long.parseLong(salesAmountStr);
-
-			 if (branchSales.containsKey(branchCode)) {
-		            branchSales.put(branchCode, branchSales.get(branchCode) + salesAmount);
-		        } else {
-		        }
-
-		 } catch (IOException e) {
-		        e.printStackTrace();
-		    } finally {
-		        try {
-		            if (br != null) br.close();
-		        } catch (IOException e) {
-		            e.printStackTrace();
-		        }
-		    }
-
-		}
-
-	private static boolean readFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
-		 BufferedReader br = null;
-	        try {
-	            File file = new File(path, fileName);
-	            if (!file.exists()) {
-	            	 System.out.println(FILE_NOT_EXIST);
-	                return false;
-	            }
-	            br = new BufferedReader(new FileReader(file));
-
-	            String line;
-	            while ((line = br.readLine()) != null) {
-	                String[] items = line.split(",");
-	                if (items.length != 2 || !items[0].matches("\\d{3}")) {
-	                	System.out.println(FILE_INVALID_FORMAT);
-	                    return false;
+	                if (branchCode == null || salesAmountStr == null || !branchCode.matches("\\d{3}") || !salesAmountStr.matches("\\d+")) {
+	                    System.out.println("売上ファイルのフォーマットが不正です: " + salesFile.getName());
+	                    return;
 	                }
-	                branchNames.put(items[0], items[1]);
-	                branchSales.put(items[0], 0L);
-	            }
 
-	            return true;
+	                long salesAmount = Long.parseLong(salesAmountStr);
 
-	        } catch (IOException e) {
-	        	 System.out.println(UNKNOWN_ERROR);
-	            e.printStackTrace();
-	            return false;
-	        } finally {
-	            try {
-	                if (br != null) br.close();
+	                if (branchSales.containsKey(branchCode)) {
+	                    branchSales.put(branchCode, branchSales.get(branchCode) + salesAmount);
+	                } else {
+	                    System.out.println("エラー: 売上ファイルの支店コードが支店定義に存在しません: " + branchCode);
+	                }
 	            } catch (IOException e) {
+	                System.out.println("売上ファイルの読み込み中にエラーが発生しました: " + salesFile.getName());
 	                e.printStackTrace();
+	                return;
 	            }
 	        }
+		// **writeFile を呼び出して集計結果を書き込む**
+		 String outputFile = args[0] + "/" + FILE_NAME_BRANCH_OUT;
+	        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile))) {
+	            for (String branchCode : branchNames.keySet()) {
+	                String branchName = branchNames.get(branchCode);
+	                Long totalSales = branchSales.get(branchCode);
+	                bw.write(branchCode + "," + branchName + "," + totalSales);
+	                bw.newLine();
+	            }
+	        } catch (IOException e) {
+	            System.out.println("支店別集計ファイルの書き込み中にエラーが発生しました");
+	            e.printStackTrace();
+	        }
+	      }
 	    }
-
-	private static boolean writeFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
-		 File file = new File(path, fileName);
-
-		 try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
-			 for (String branchCode : branchNames.keySet()) {
-		            String branchName = branchNames.get(branchCode);
-		            Long totalSales = branchSales.get(branchCode);
-
-		            bw.write(branchCode + "," + branchName + "," + totalSales);
-		            bw.newLine(); // 改行
-		 }
-	} catch (IOException e) {
-		        e.printStackTrace();
-		        return false;
-	}
-
-        return true;
-	}
-}
