@@ -24,11 +24,6 @@ public class CalculateSales {
 	private static final String FILE_NOT_EXIST = "支店定義ファイルが存在しません";
 	private static final String FILE_INVALID_FORMAT = "支店定義ファイルのフォーマットが不正です";
 
-	/**
-	 * メインメソッド
-	 *
-	 * @param コマンドライン引数
-	 */
 	public static void main(String[] args) {
 		// 支店コードと支店名を保持するMap
 		Map<String, String> branchNames = new HashMap<>();
@@ -125,6 +120,7 @@ public class CalculateSales {
 	            }
 
 	            return true;
+
 	        } catch (IOException e) {
 	        	 System.out.println(UNKNOWN_ERROR);
 	            e.printStackTrace();
@@ -157,4 +153,3 @@ public class CalculateSales {
         return true;
 	}
 }
-		// ※ここから集計処理を作成してください(処理内容2-1、2-2)
